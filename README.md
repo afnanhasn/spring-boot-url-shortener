@@ -14,13 +14,27 @@ A web application to shorten URLs using Spring Boot and PostgreSQL. Supports gue
 
 ---
 
-## ✨ Features
+## 📌 Requirements
 
-- 🔗 Accepts long URLs (public or private) and returns shortened versions  
-- 👤 Supports both guest mode and authenticated login  
-- 🛠️ Admin dashboard for managing URLs and users  
-- 🔒 Future support for REST endpoints and API access  
+### 🔗 Shorten URL
+- Accept a long URL and return a shortened URL
+- Ensure the shortened URL is unique
+- Validate input URL for correctness (optional/configurable)
+- Allow guest users to create public shortened URLs with a default 30-day expiration
+- Allow authenticated users to:
+  - Create public or private shortened URLs with custom expiration time
+  - View and delete their own shortened URLs
 
+### 🔁 Redirection
+- Redirect to the original long URL when a shortened URL is accessed
+- Handle invalid or expired shortened URLs gracefully
+
+### 📊 Analytics
+- Track the number of clicks for each shortened URL
+
+### 👥 User Management
+- Allow users to register and login
+- Admin users can view all shortened URLs (including public and private)
 ---
 
 ## 🧰 Local Setup Instructions
