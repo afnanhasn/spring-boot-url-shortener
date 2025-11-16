@@ -23,4 +23,9 @@ public class SecurityUtils {
         }
         return null;
     }
+
+    public Long getCurrentUserId() { // this method will return a userID incase of a logged in user
+        User user = getCurrentUser();
+        return user != null ? user.getId() : null;
+    }
 }

@@ -5,6 +5,7 @@ import com.realprojects.urlshortener.domain.entities.ShortUrl;
 import com.realprojects.urlshortener.domain.entities.User;
 import com.realprojects.urlshortener.domain.exceptions.ShortUrlNotFoundException;
 import com.realprojects.urlshortener.domain.models.CreateShortUrlCmd;
+import com.realprojects.urlshortener.domain.models.PagedResult;
 import com.realprojects.urlshortener.domain.models.ShortUrlDto;
 import com.realprojects.urlshortener.domain.services.ShortUrlService;
 import com.realprojects.urlshortener.web.dtos.CreateShortUrlForm;
@@ -12,10 +13,7 @@ import jakarta.validation.Valid;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.List;
@@ -33,21 +31,29 @@ public class HomeController {
     private final ApplicationProperties properties;
     private final SecurityUtils securityUtils;
 
-    public HomeController(ShortUrlService shortUrlService, ApplicationProperties properties, SecurityUtils securityUtils) {
+    public HomeController(ShortUrlService shortUrlService,
+                          ApplicationProperties properties,
+                          SecurityUtils securityUtils) {
         this.shortUrlService = shortUrlService;
         this.properties = properties;
         this.securityUtils = securityUtils;
     }
 //Thymeleaf dependency was added in pom and html pages were moved from 'resources/static' to 'resources/templates'
     @GetMapping("/")
-    public String home(Model model){//Model parameter added from spring framework for adding dynamic data
-        User currentUser = securityUtils.getCurrentUser();
-        List<ShortUrlDto> shortUrls = shortUrlService.findAllPublicShortUrls();
-        model.addAttribute("shortUrls", shortUrls);
-        model.addAttribute("baseUrl", properties.baseUrl());
-        model.addAttribute("createShortUrlForm", new CreateShortUrlForm(""));
+    public String home(
+            @RequestParam(defaultValue = "1") Integer page,//Endpoint will also be accepting a page number whose default value has been set to 1
+            Model model){//Model parameter added from spring framework for adding dynamic data
+        this.addShortUrlsDataToModel(model, page);
+        model.addAttribute("createShortUrlForm",
+                new CreateShortUrlForm("", false, null));//default values for form fields
         return "index";//.html ext isn't required with thymeleaf
 //        model.addAttribute("title","URL Shortener- dynamic data with thymeleaf ");
+    }
+//  short and base urls have been wrapped in page type using the helper metheod
+    private void addShortUrlsDataToModel(Model model, int pageNo) {
+        PagedResult<ShortUrlDto> shortUrls = shortUrlService.findAllPublicShortUrls(pageNo, properties.pageSize());
+        model.addAttribute("shortUrls", shortUrls);
+        model.addAttribute("baseUrl", properties.baseUrl());
     }
 
     @PostMapping("/short-urls")
@@ -56,15 +62,19 @@ public class HomeController {
                           RedirectAttributes redirectAttributes,
                           Model model) {
         if (bindingResult.hasErrors()) {
-            List<ShortUrlDto> shortUrls = shortUrlService.findAllPublicShortUrls();
-            model.addAttribute("shortUrls", shortUrls);
-            model.addAttribute("baseUrl", properties.baseUrl());
+            this.addShortUrlsDataToModel(model, 1);
             return "index"; /*If there are any errors then index.html page will be rendered along with incorrect input in form
             and also table still needs to be displayed hence above List and model attributes are added as well*/
         }
 
         try { // If there are no errors while input then short url creation will happen and get stored in db
-            CreateShortUrlCmd cmd = new CreateShortUrlCmd(form.originalUrl());
+            Long userId = securityUtils.getCurrentUserId();// while creating short url, userId will be null for guest users
+            CreateShortUrlCmd cmd = new CreateShortUrlCmd(
+                    form.originalUrl(),
+                    form.isPrivate(),
+                    form.expirationInDays(),
+                    userId
+            );
             var shortUrlDto = shortUrlService.createShortUrl(cmd);
             redirectAttributes.addFlashAttribute("successMessage", "Short URL created successfully "+
                     properties.baseUrl()+"/s/"+shortUrlDto.shortKey());
@@ -74,9 +84,11 @@ public class HomeController {
         }
         return "redirect:/"; // If no errors then it get's redirected to home page, line 32
     }
-    @GetMapping("/s/{shortKey}")//controller responsible for redirecting
+
+    @GetMapping("/s/{shortKey}")// this request path is responsible for redirecting short key to original url
     String redirectToOriginalUrl(@PathVariable String shortKey) {
-        Optional<ShortUrlDto> shortUrlDtoOptional = shortUrlService.accessShortUrl(shortKey);
+        Long userId = securityUtils.getCurrentUserId();
+        Optional<ShortUrlDto> shortUrlDtoOptional = shortUrlService.accessShortUrl(shortKey, userId);
         if(shortUrlDtoOptional.isEmpty()) { //To avoid if a short url with made-up short key gets hit
             throw new ShortUrlNotFoundException("Invalid short key: "+shortKey);//Java class for handling this error and also global handler
         }
