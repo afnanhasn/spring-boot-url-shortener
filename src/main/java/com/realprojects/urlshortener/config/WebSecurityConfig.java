@@ -2,6 +2,9 @@ package com.realprojects.urlshortener.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
@@ -13,6 +16,7 @@ import org.springframework.security.web.SecurityFilterChain;
 //It's purpose is to restrict certain URLs for guest (example home page) and others for authenticated users and admin
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 public class WebSecurityConfig {
 
     @Bean
@@ -29,8 +33,8 @@ public class WebSecurityConfig {
                     "/error", "/webjars/**", "/css/**", "/js/**", "/images/**",
                     "/", "/short-urls", "/s/**", "/register", "/login"
                 ).permitAll() //These paths are permitted to all/ guest users
-                .requestMatchers("/my-urls").authenticated()//Permitted to logged in users
-                .requestMatchers("/admin/**").hasRole("ADMIN")//permitted to admin users
+//                .requestMatchers("/my-urls").authenticated()//Permitted to logged in users
+//                .requestMatchers("/admin/**").hasRole("ADMIN")//permitted to admin users
                 .anyRequest().authenticated()//All the other paths apart form above specified shall require authenticated user
             )
             .formLogin(form -> form
@@ -45,5 +49,10 @@ public class WebSecurityConfig {
             );
 
         return http.build();// web security getting built finally.
+    }
+
+    @Bean
+    RoleHierarchy roleHierarchy() {//Denotes that whichever request handler or html element has user access will automatically have admin access as well
+        return RoleHierarchyImpl.fromHierarchy("ROLE_ADMIN > ROLE_USER");
     }
 }

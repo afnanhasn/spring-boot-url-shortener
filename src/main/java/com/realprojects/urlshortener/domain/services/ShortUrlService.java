@@ -40,12 +40,36 @@ public class ShortUrlService {
         this.userRepository = userRepository;
     }
 
-    public PagedResult<ShortUrlDto> findAllPublicShortUrls(int pageNo, int pageSize) {// spring jpa begins page number from 0 hence whatever page number user inputs as parameter will be decreased by 1
-        pageNo = pageNo > 1? pageNo - 1 : 0;// edge case has been considered that if user inputs value 0 or anything below then jpa still considers as page 0
-        Pageable pageable = PageRequest.of(pageNo, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+    public PagedResult<ShortUrlDto> findAllPublicShortUrls(int pageNo, int pageSize) {
+        Pageable pageable = getPageable(pageNo, pageSize);
         Page<ShortUrlDto> shortUrlDtoPage = shortUrlRepository.findPublicShortUrls(pageable)
                 .map(entityMapper::toShortUrlDto);
         return PagedResult.from(shortUrlDtoPage);
+    }
+
+    public PagedResult<ShortUrlDto> getUserShortUrls(Long userId, int page, int pageSize) {
+        Pageable pageable = getPageable(page, pageSize);
+        var shortUrlsPage = shortUrlRepository.findByCreatedById(userId, pageable)
+                .map(entityMapper::toShortUrlDto);
+        return PagedResult.from(shortUrlsPage);
+    }
+
+    @Transactional
+    public void deleteUserShortUrls(List<Long> ids, Long userId) {
+        if (ids != null && !ids.isEmpty() && userId != null) {
+            shortUrlRepository.deleteByIdInAndCreatedById(ids, userId);
+        }
+    }
+
+    public PagedResult<ShortUrlDto> findAllShortUrls(int page, int pageSize) {
+        Pageable pageable = getPageable(page, pageSize);
+        var shortUrlsPage =  shortUrlRepository.findAllShortUrls(pageable).map(entityMapper::toShortUrlDto);
+        return PagedResult.from(shortUrlsPage);
+    }
+
+    private Pageable getPageable(int page, int size) {// spring jpa begins page number from 0 hence whatever page number user inputs as parameter will be decreased by 1
+        page = page > 1 ? page - 1: 0;// edge case has been considered that if user inputs value 0 or anything below then jpa still considers as page 0
+        return PageRequest.of(page, size, Sort.Direction.DESC, "createdAt");
     }
 
     @Transactional
@@ -76,26 +100,6 @@ public class ShortUrlService {
         return entityMapper.toShortUrlDto(shortUrl);
     }
 
-    private String generateUniqueShortKey() { //To check that the short key generated randomly is unique and doesn't exist in Db already
-        String shortKey;
-        do {
-            shortKey = generateRandomShortKey();
-        } while (shortUrlRepository.existsByShortKey(shortKey));
-        return shortKey;
-    }
-
-    private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    private static final int SHORT_KEY_LENGTH = 6;
-    private static final SecureRandom RANDOM = new SecureRandom();
-
-    public static String generateRandomShortKey() {
-        StringBuilder sb = new StringBuilder(SHORT_KEY_LENGTH);
-        for (int i = 0; i < SHORT_KEY_LENGTH; i++) {
-            sb.append(CHARACTERS.charAt(RANDOM.nextInt(CHARACTERS.length())));
-        }
-        return sb.toString();
-    }
-
     @Transactional
     public Optional<ShortUrlDto> accessShortUrl(String shortKey, Long userId) {
         Optional<ShortUrl> shortUrlOptional = shortUrlRepository.findByShortKey(shortKey);
@@ -116,5 +120,25 @@ public class ShortUrlService {
         shortUrl.setClickCount(shortUrl.getClickCount()+1);//maintaining insights of how many times a short url got hit by incrementing flag variable
         shortUrlRepository.save(shortUrl);
         return shortUrlOptional.map(entityMapper::toShortUrlDto);
+    }
+
+    private String generateUniqueShortKey() {
+        String shortKey;
+        do {
+            shortKey = generateRandomShortKey();
+        } while (shortUrlRepository.existsByShortKey(shortKey));
+        return shortKey;
+    }
+
+    private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    private static final int SHORT_KEY_LENGTH = 6;
+    private static final SecureRandom RANDOM = new SecureRandom();
+
+    public static String generateRandomShortKey() {
+        StringBuilder sb = new StringBuilder(SHORT_KEY_LENGTH);
+        for (int i = 0; i < SHORT_KEY_LENGTH; i++) {
+            sb.append(CHARACTERS.charAt(RANDOM.nextInt(CHARACTERS.length())));
+        }
+        return sb.toString();
     }
 }
