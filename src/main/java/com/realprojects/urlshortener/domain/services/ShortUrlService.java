@@ -113,7 +113,7 @@ public class ShortUrlService {
             return Optional.empty();
         }
         //Verifying if given short url is private and is accessible by the current user
-        if(shortUrl.getIsPrivate() != null && shortUrl.getCreatedBy() != null
+        if(shortUrl.getIsPrivate() != null && shortUrl.getIsPrivate() && shortUrl.getCreatedBy() != null
                 && !Objects.equals(shortUrl.getCreatedBy().getId(), userId)) {
             return Optional.empty();
         }
